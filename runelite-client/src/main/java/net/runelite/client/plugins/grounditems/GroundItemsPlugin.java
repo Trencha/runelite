@@ -145,6 +145,7 @@ public class GroundItemsPlugin extends Plugin
 
 	private List<String> hiddenItemList = new CopyOnWriteArrayList<>();
 	private List<String> highlightedItemsList = new CopyOnWriteArrayList<>();
+	private List<String> whitelistedItemsList = new CopyOnWriteArrayList<>();
 
 	@Inject
 	private GroundItemHotkeyListener hotkeyListener;
@@ -193,6 +194,7 @@ public class GroundItemsPlugin extends Plugin
 	private List<PriceHighlight> priceChecks = ImmutableList.of();
 	private LoadingCache<NamedQuantity, Boolean> highlightedItems;
 	private LoadingCache<NamedQuantity, Boolean> hiddenItems;
+	private LoadingCache<NamedQuantity, Boolean> whitelistedItems;
 	private final Map<WorldPoint, Lootbeam> lootbeams = new HashMap<>();
 
 	@Provides
@@ -219,10 +221,13 @@ public class GroundItemsPlugin extends Plugin
 		keyManager.unregisterKeyListener(hotkeyListener);
 		highlightedItems.invalidateAll();
 		highlightedItems = null;
+		highlightedItemsList = null;
 		hiddenItems.invalidateAll();
 		hiddenItems = null;
 		hiddenItemList = null;
-		highlightedItemsList = null;
+		whitelistedItems.invalidateAll();
+		whitelistedItems = null;
+		whitelistedItemsList = null;
 		collectedGroundItems.clear();
 		clientThread.invokeLater(this::removeAllLootbeams);
 	}
@@ -455,6 +460,9 @@ public class GroundItemsPlugin extends Plugin
 		// gets the highlighted items from the text box in the config
 		highlightedItemsList = Text.fromCSV(config.getHighlightItems());
 
+		// gets the whitelisted items from the text box in the config
+		whitelistedItemsList = Text.fromCSV(config.getWhitelistedItems());
+
 		highlightedItems = CacheBuilder.newBuilder()
 			.maximumSize(512L)
 			.expireAfterAccess(10, TimeUnit.MINUTES)
@@ -464,6 +472,11 @@ public class GroundItemsPlugin extends Plugin
 			.maximumSize(512L)
 			.expireAfterAccess(10, TimeUnit.MINUTES)
 			.build(new WildcardMatchLoader(hiddenItemList));
+
+		whitelistedItems = CacheBuilder.newBuilder()
+			.maximumSize(512L)
+			.expireAfterAccess(10, TimeUnit.MINUTES)
+			.build(new WildcardMatchLoader(whitelistedItemsList));
 
 		// Cache colors
 		ImmutableList.Builder<PriceHighlight> priceCheckBuilder = ImmutableList.builder();
@@ -662,12 +675,13 @@ public class GroundItemsPlugin extends Plugin
 		var item = new NamedQuantity(groundItem);
 		final boolean isExplicitHidden = TRUE.equals(hiddenItems.getUnchecked(item));
 		final boolean isExplicitHighlight = TRUE.equals(highlightedItems.getUnchecked(item));
+		final boolean isWhitelisted = TRUE.equals(whitelistedItems.getUnchecked(item));
 		final boolean canBeHidden = groundItem.getGePrice() > 0 || groundItem.isTradeable() || !config.dontHideUntradeables();
 		final boolean underGe = groundItem.getGePrice() < config.getHideUnderValue();
 		final boolean underHa = groundItem.getHaPrice() < config.getHideUnderValue();
 
 		// Explicit highlight takes priority over implicit hide
-		return isExplicitHidden || (!isExplicitHighlight && canBeHidden && underGe && underHa)
+		return isExplicitHidden || (!isExplicitHighlight && !isWhitelisted && canBeHidden && underGe && underHa)
 			? config.hiddenColor()
 			: null;
 	}

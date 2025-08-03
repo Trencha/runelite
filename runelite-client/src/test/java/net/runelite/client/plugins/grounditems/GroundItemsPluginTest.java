@@ -115,6 +115,7 @@ public class GroundItemsPluginTest
 		}).when(executor).execute(any(Runnable.class));
 
 		when(config.getHiddenItems()).thenReturn("");
+		when(config.getWhitelistedItems()).thenReturn("");
 		when(config.showLootbeamForHighlighted()).thenReturn(false);
 		when(config.showLootbeamTier()).thenReturn(HighlightTier.OFF);
 	}
